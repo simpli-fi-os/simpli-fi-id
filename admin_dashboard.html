@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simpli-FI OS | God Mode</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Firebase SDKs (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+
+    <style>
+        body { background-color: #0f172a; color: white; }
+        .glass-panel { background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .stat-card { transition: transform 0.2s; }
+        .stat-card:hover { transform: translateY(-2px); }
+        .spinner { border: 2px solid rgba(255,255,255,0.1); border-left-color: #10b981; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="min-h-screen p-6 font-sans">
+
+    <!-- HEADER -->
+    <header class="flex justify-between items-center mb-8 max-w-7xl mx-auto">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-indigo-500 rounded-lg flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/20">
+                <i data-lucide="activity"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-xl tracking-tight">System Status</h1>
+                <p class="text-xs text-slate-400">Viral-Ready Monitoring (Optimized)</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-4">
+            <div id="connection-status" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-xs font-bold transition-all">
+                <span class="w-2 h-2 rounded-full bg-slate-500"></span>
+                Connecting...
+            </div>
+            <button onclick="fetchData()" id="refresh-btn" class="p-2 bg-slate-800 rounded-lg hover:bg-slate-700 transition text-slate-400 hover:text-white flex items-center justify-center w-9 h-9">
+                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- METRICS GRID -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-7xl mx-auto mb-8">
+        
+        <!-- Total Users -->
+        <div class="glass-panel p-6 rounded-2xl stat-card relative overflow-hidden group">
+            <div class="absolute -right-6 -top-6 bg-blue-500/10 w-24 h-24 rounded-full group-hover:bg-blue-500/20 transition-colors"></div>
+            <div class="flex justify-between items-start mb-4 relative z-10">
+                <div class="p-2 bg-blue-500/20 rounded-lg text-blue-400"><i data-lucide="users" class="w-5 h-5"></i></div>
+                <span class="text-xs text-slate-400 font-mono">ALL TIME</span>
+            </div>
+            <h3 class="text-3xl font-bold text-white mb-1 relative z-10" id="stat-total">-</h3>
+            <p class="text-xs text-slate-400 relative z-10">Total Identities</p>
+        </div>
+
+        <!-- Free Users (Viral) -->
+        <div class="glass-panel p-6 rounded-2xl stat-card relative overflow-hidden group">
+            <div class="absolute -right-6 -top-6 bg-slate-500/10 w-24 h-24 rounded-full group-hover:bg-slate-500/20 transition-colors"></div>
+            <div class="flex justify-between items-start mb-4 relative z-10">
+                <div class="p-2 bg-slate-700 rounded-lg text-slate-400"><i data-lucide="gift" class="w-5 h-5"></i></div>
+                <span class="text-xs text-slate-400 font-mono">RECENT TREND</span>
+            </div>
+            <h3 class="text-3xl font-bold text-slate-200 mb-1 relative z-10" id="stat-recent">-</h3>
+            <p class="text-xs text-slate-400 relative z-10">Signups (Last 20)</p>
+        </div>
+
+        <!-- Pro Revenue -->
+        <div class="glass-panel p-6 rounded-2xl stat-card border-t-4 border-emerald-500 relative overflow-hidden">
+            <div class="absolute -right-6 -top-6 bg-emerald-500/10 w-24 h-24 rounded-full"></div>
+            <div class="flex justify-between items-start mb-4 relative z-10">
+                <div class="p-2 bg-emerald-500/20 rounded-lg text-emerald-400"><i data-lucide="dollar-sign" class="w-5 h-5"></i></div>
+                <span class="text-xs text-emerald-400 font-mono font-bold">EST. TOTAL</span>
+            </div>
+            <h3 class="text-3xl font-bold text-white mb-1 relative z-10" id="stat-pro-rev">$0</h3>
+            <p class="text-xs text-slate-400 relative z-10">Based on projections</p>
+        </div>
+
+        <!-- MRR -->
+        <div class="glass-panel p-6 rounded-2xl stat-card border-t-4 border-amber-500 relative overflow-hidden">
+            <div class="absolute -right-6 -top-6 bg-amber-500/10 w-24 h-24 rounded-full"></div>
+            <div class="flex justify-between items-start mb-4 relative z-10">
+                <div class="p-2 bg-amber-500/20 rounded-lg text-amber-400"><i data-lucide="zap" class="w-5 h-5"></i></div>
+                <span class="text-xs text-amber-400 font-mono font-bold">MRR</span>
+            </div>
+            <h3 class="text-3xl font-bold text-white mb-1 relative z-10" id="stat-mrr">$0</h3>
+            <p class="text-xs text-slate-400 relative z-10">Projected</p>
+        </div>
+
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
+        
+        <!-- Recent Signups -->
+        <div class="lg:col-span-2 glass-panel rounded-2xl p-6 flex flex-col">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i data-lucide="list" class="w-5 h-5 text-slate-400"></i> Latest Activity
+                </h3>
+                <span class="text-xs text-slate-500 bg-slate-800 px-2 py-1 rounded border border-slate-700">Last 20 Users</span>
+            </div>
+            
+            <div class="overflow-x-auto flex-1">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="text-xs text-slate-500 uppercase tracking-wider border-b border-slate-700">
+                            <th class="pb-3 pl-2">User Identity</th>
+                            <th class="pb-3">Tier</th>
+                            <th class="pb-3">Joined</th>
+                            <th class="pb-3 text-right pr-2">Link</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm text-slate-300 divide-y divide-slate-800" id="signup-list">
+                        <tr>
+                            <td colspan="4" class="py-12 text-center text-slate-500 italic">
+                                <div class="flex flex-col items-center gap-3">
+                                    <div class="spinner w-6 h-6 border-2"></div> 
+                                    <span>Establishing secure connection...</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- System Health & Config -->
+        <div class="space-y-6">
+            
+            <!-- Tier Breakdown Chart -->
+            <div class="glass-panel rounded-2xl p-6">
+                <h3 class="text-sm font-bold text-white mb-4 uppercase tracking-widest text-slate-400 flex items-center justify-between">
+                    Recent Mix
+                    <i data-lucide="pie-chart" class="w-4 h-4 text-slate-500"></i>
+                </h3>
+                <div class="relative h-48 w-full flex items-center justify-center">
+                    <canvas id="tierChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Diagnostics -->
+            <div class="glass-panel rounded-2xl p-6">
+                <h3 class="text-sm font-bold text-white mb-4 uppercase tracking-widest text-slate-400">Diagnostics</h3>
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-slate-300">Firebase Auth</span>
+                        <span class="text-xs font-bold text-slate-400 bg-slate-700 px-2 py-1 rounded flex items-center gap-1" id="status-auth">
+                            <span class="w-1.5 h-1.5 bg-slate-400 rounded-full"></span> CHECKING
+                        </span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-slate-300">Database Latency</span>
+                        <span class="text-xs font-bold text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded" id="latency-val">-- ms</span>
+                    </div>
+                    <div class="p-3 bg-emerald-900/20 border border-emerald-500/30 rounded-lg mt-4">
+                        <p class="text-[10px] text-emerald-300 leading-relaxed">
+                            <strong class="block mb-1 text-emerald-200">Scale Optimized:</strong>
+                            Dashboard now uses limited fetches. Safe for 1M+ users.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Links -->
+            <div class="glass-panel rounded-2xl p-6">
+                <h3 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Quick Access</h3>
+                <div class="space-y-2">
+                    <a href="https://console.firebase.google.com/" target="_blank" class="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-700 transition text-sm text-slate-300 border border-transparent hover:border-slate-600">
+                        <i data-lucide="database" class="w-4 h-4 text-amber-500"></i> Firebase Console
+                    </a>
+                    <a href="https://www.notion.so/" target="_blank" class="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-700 transition text-sm text-slate-300 border border-transparent hover:border-slate-600">
+                        <i data-lucide="table" class="w-4 h-4 text-white"></i> Notion CRM
+                    </a>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAnlmGZNwoPS-vBnK1AlHvNsB73q0UAkCU",
+            authDomain: "simpli-fi-id.firebaseapp.com",
+            projectId: "simpli-fi-id",
+            storageBucket: "simpli-fi-id.firebasestorage.app",
+            messagingSenderId: "97006103916",
+            appId: "1:97006103916:web:631c876a6eb263caf81749"
+        };
+
+        // Initialize Firebase
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        
+        let tierChartInstance = null; // Store chart instance
+
+        // Initialize Icons
+        lucide.createIcons();
+
+        // MOCK DATA GENERATOR (For Demo Mode)
+        function getMockData() {
+            return [
+                { id: '1', full_name: 'Alex Rivera', email: 'alex.r@example.com', tier: 'founder', created_at: { seconds: Date.now()/1000 } },
+                { id: '2', full_name: 'Sarah Chen', email: 's.chen@tech.co', tier: 'pro', created_at: { seconds: Date.now()/1000 - 3600 } },
+                { id: '3', full_name: 'Jordan Smith', email: 'jordan.s@example.com', tier: 'free', created_at: { seconds: Date.now()/1000 - 86400 } },
+                { id: '4', full_name: 'Priya Patel', email: 'priya.dev@example.com', tier: 'pro', created_at: { seconds: Date.now()/1000 - 100000 } },
+                { id: '5', full_name: 'Mike Johnson', email: 'mike.j@example.com', tier: 'free', created_at: { seconds: Date.now()/1000 - 150000 } }
+            ];
+        }
+
+        async function fetchData() {
+            const btn = document.getElementById('refresh-btn');
+            btn.innerHTML = '<div class="spinner"></div>';
+            btn.disabled = true;
+            
+            const start = Date.now();
+            let isDemoMode = false;
+            let recentSnapshotDocs = [];
+            let totalCount = 0;
+            
+            try {
+                // 1. Auth Check (Robust Handling)
+                if (!auth.currentUser) {
+                    try {
+                        await auth.signInAnonymously();
+                    } catch (anonError) {
+                        console.warn("Auth failed, switching to Demo Mode:", anonError.code);
+                        isDemoMode = true;
+                    }
+                }
+
+                // 2. Fetch Data
+                if (isDemoMode) {
+                    // Demo Logic
+                    await new Promise(r => setTimeout(r, 800));
+                    recentSnapshotDocs = getMockData().map(d => ({ id: d.id, data: () => d }));
+                    totalCount = 125; 
+                    document.getElementById('latency-val').innerText = `Simulated`;
+                } else {
+                    // Real Data - OPTIMIZED FOR SCALE
+                    await db.collection('users').limit(1).get(); // Warm up & Latency check
+                    const latency = Date.now() - start;
+                    document.getElementById('latency-val').innerText = `${latency} ms`;
+                    
+                    // A. Fetch only the last 20 users (Low Cost)
+                    const recent = await db.collection('users').orderBy('created_at', 'desc').limit(20).get();
+                    recentSnapshotDocs = recent.docs;
+                    
+                    // B. Get Total Count (Aggregation Query - Extremely Cheap)
+                    // If your SDK supports it (v9+ compat):
+                    try {
+                        const countSnapshot = await db.collection('users').count().get();
+                        totalCount = countSnapshot.data().count;
+                    } catch(e) {
+                        // Fallback if count() isn't available in this specific compat version
+                        totalCount = recentSnapshotDocs.length + "+"; 
+                    }
+                }
+
+                // 3. Update Status UI
+                updateStatusUI(isDemoMode);
+
+                // 4. Update Total Count
+                document.getElementById('stat-total').innerText = totalCount;
+
+                // 5. Process Recent Data for Stats
+                const sampleSize = recentSnapshotDocs.length;
+                let free = 0, pro = 0, founder = 0;
+
+                const list = document.getElementById('signup-list');
+                list.innerHTML = '';
+
+                if (sampleSize === 0) {
+                    list.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-slate-500">No users found.</td></tr>';
+                } else {
+                    recentSnapshotDocs.forEach(doc => {
+                        const u = doc.data();
+                        const docId = doc.id; // Corrected: Get ID from doc property
+                        
+                        // Count tiers in sample
+                        if(u.tier === 'pro') pro++;
+                        else if(u.tier === 'founder') founder++;
+                        else free++;
+
+                        // Render Row
+                        renderUserRow(list, u, docId);
+                    });
+                }
+
+                // 6. Project Revenue (Based on sample ratio extrapolated to total)
+                const ratioPro = sampleSize > 0 ? pro / sampleSize : 0;
+                const ratioFounder = sampleSize > 0 ? founder / sampleSize : 0;
+                const numericTotal = typeof totalCount === 'number' ? totalCount : sampleSize;
+
+                const estProUsers = Math.floor(numericTotal * ratioPro);
+                const estFounderUsers = Math.floor(numericTotal * ratioFounder);
+
+                const oneTimeRev = (estProUsers * 19) + (estFounderUsers * 49);
+                const monthlyRev = (estFounderUsers * 5);
+                
+                const formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+                document.getElementById('stat-pro-rev').innerText = formatter.format(oneTimeRev);
+                document.getElementById('stat-mrr').innerText = formatter.format(monthlyRev);
+                document.getElementById('stat-recent').innerText = sampleSize; 
+
+                // 7. Update Chart (Visualizes the sample mix)
+                updateChart(free, pro, founder);
+                
+            } catch (error) {
+                console.error("Dashboard Critical Error:", error);
+                document.getElementById('connection-status').innerHTML = `<i data-lucide="alert-triangle" class="w-3 h-3"></i> Critical Error`;
+                document.getElementById('connection-status').className = "flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold";
+            } finally {
+                btn.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4"></i>';
+                btn.disabled = false;
+                lucide.createIcons();
+            }
+        }
+
+        function updateStatusUI(isDemoMode) {
+            const statusEl = document.getElementById('connection-status');
+            const authStatusEl = document.getElementById('status-auth');
+            
+            if (isDemoMode) {
+                statusEl.className = "flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold";
+                statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Demo Mode`;
+                authStatusEl.className = "text-xs font-bold text-amber-400 bg-amber-400/10 px-2 py-1 rounded flex items-center gap-1";
+                authStatusEl.innerHTML = `<span class="w-1.5 h-1.5 bg-amber-400 rounded-full"></span> MOCK`;
+            } else {
+                statusEl.className = "flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold";
+                statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Database Connected`;
+                authStatusEl.className = "text-xs font-bold text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded flex items-center gap-1";
+                authStatusEl.innerHTML = `<span class="w-1.5 h-1.5 bg-emerald-400 rounded-full"></span> OK`;
+            }
+        }
+
+        function renderUserRow(list, u, docId) {
+            let tierColor = 'text-slate-400 bg-slate-800/50';
+            let tierBadge = 'Free';
+            if(u.tier === 'pro') { tierColor = 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'; tierBadge = 'Pro'; }
+            if(u.tier === 'founder') { tierColor = 'text-amber-400 bg-amber-500/10 border border-amber-500/20'; tierBadge = 'Founder'; }
+
+            let dateStr = 'Just now';
+            if (u.created_at && u.created_at.seconds) {
+                const date = new Date(u.created_at.seconds * 1000);
+                dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            }
+
+            // Corrected: Use docId for the link, fallback to u.doc_id if necessary
+            const linkId = docId || u.doc_id;
+
+            const row = `
+                <tr class="hover:bg-slate-800/50 transition group">
+                    <td class="py-4 pl-2">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-300">
+                                ${(u.full_name || 'U').charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                                <div class="font-bold text-white text-sm">${u.full_name || 'Anonymous User'}</div>
+                                <div class="text-[10px] text-slate-500 font-mono">${u.email || 'No email provided'}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="py-4">
+                        <span class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${tierColor}">${tierBadge}</span>
+                    </td>
+                    <td class="py-4 text-xs text-slate-400 font-mono">${dateStr}</td>
+                    <td class="py-4 text-right pr-2">
+                        <a href="https://id.simpli-fi-os.com/${linkId}" target="_blank" class="inline-flex items-center gap-1 text-indigo-400 hover:text-indigo-300 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                            View <i data-lucide="arrow-up-right" class="w-3 h-3"></i>
+                        </a>
+                    </td>
+                </tr>
+            `;
+            list.innerHTML += row;
+        }
+
+        function updateChart(free, pro, founder) {
+            const ctx = document.getElementById('tierChart').getContext('2d');
+            const dataValues = (free + pro + founder === 0) ? [1, 0, 0] : [free, pro, founder];
+            const bgColors = (free + pro + founder === 0) ? ['rgba(71, 85, 105, 0.3)', 'transparent', 'transparent'] : ['#475569', '#10b981', '#f59e0b'];
+
+            if (tierChartInstance) tierChartInstance.destroy();
+
+            tierChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Free', 'Pro', 'Founder'],
+                    datasets: [{ data: dataValues, backgroundColor: bgColors, borderWidth: 0, hoverOffset: 4 }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right', labels: { usePointStyle: true, boxWidth: 8 } } },
+                    cutout: '75%'
+                }
+            });
+        }
+
+        function animateValue(id, start, end, duration) {
+            if (start === end || isNaN(start)) { document.getElementById(id).innerHTML = end; return; }
+            const range = end - start;
+            let current = start;
+            const increment = end > start ? 1 : -1;
+            const stepTime = Math.abs(Math.floor(duration / range));
+            const obj = document.getElementById(id);
+            const timer = setInterval(function() {
+                current += increment;
+                obj.innerHTML = current;
+                if ((increment > 0 && current >= end) || (increment < 0 && current <= end)) {
+                    obj.innerHTML = end;
+                    clearInterval(timer);
+                }
+            }, stepTime < 10 ? 10 : stepTime);
+        }
+
+        window.onload = fetchData;
+    </script>
+</body>
+</html>
